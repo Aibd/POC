@@ -1,0 +1,53 @@
+#!/bin/bash
+
+#桌面无水印
+mv /usr/share/deepin/uos_logo.svg /usr/share/deepin/uos_logo.bak.svg && killall dde-desktop
+
+
+#时间同步
+sed -i "s/^#NTP=/NTP=10.90.70.30/g" /etc/systemd/timesyncd.conf
+systemctl start systemd-timesyncd
+systemctl enable systemd-timesyncd
+
+#自动登陆
+sed -i "s/^#autologin-user=/autologin-user=sfids/g"  /etc/lightdm/lightdm.conf
+
+#udev
+cp -f ${OEM_DIR}/51-ttyusb.rules /etc/udev/rules.d
+
+#Xorg关闭垂直同步
+echo "__GL_SYNC_TO_VBLANK=0" >> /etc/enviorment
+echo "vblank_mode=0" >> /etc/enviorment
+
+#sudo reboot需要输入密码
+sed -i "s|%sudo.*|%sudo   ALL=(ALL) NOPASSWD: ALL, PASSWD: /usr/sbin/reboot|g" /etc/sudoers
+
+#创建x11vnc服务文件并设置服务自启动
+cp -f ${OEM_DIR}/x11vnc.service /lib/systemd/system/
+chmod 644 /lib/systemd/system/x11vnc.service
+systemctl start x11vnc.service
+systemctl enable x11vnc.service
+
+#隐藏任务栏
+mv /usr/bin/dde-dock /usr/bin/dde-dock-bak
+
+#关闭deepin-anything工具，减少cpu占用
+systemctl disable --now deepin-anything-tool.service
+systemctl disable --now deepin-anything-monitor.service
+
+#公钥Key用于私钥自动登陆
+if [ ! -d "/home/sfids/.ssh" ];then
+	mkdir /home/sfids/.ssh
+	cp -f ${OEM_DIR}/authorized_keys /home/sfids/.ssh/
+else
+	cp -f ${OEM_DIR}/authorized_keys /home/sfids/.ssh/
+fi
+
+#关闭首次启动动画
+mv /usr/bin/dde-introduction /usr/bin/dde-introduction.bak
+
+#开机自动启动
+cp -f ${OEM_DIR}/customize_desk.sh /usr/bin/
+chmod a+x /usr/bin/customize_desk.sh
+cp -f ${OEM_DIR}/customize.desktop /etc/xdg/autostart/
+chmod 777 /etc/xdg/autostart/customize.desktop
